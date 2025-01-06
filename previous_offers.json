@@ -1,0 +1,29 @@
+[
+    {
+        "numero": "001",
+        "titre": "Offre spéciale",
+        "data": {
+            "numero": "001",
+            "titre": "Offre spéciale",
+            "client_nom": "",
+            "client_entreprise": "",
+            "client_email": "",
+            "articles": [
+                {
+                    "nom": "",
+                    "description": "",
+                    "prix": 0.0,
+                    "unite_prix": "",
+                    "quantite": 0.0,
+                    "unite_quantite": "",
+                    "container_type": "",
+                    "quantite1": "",
+                    "unite1": "",
+                    "quantite2": "",
+                    "unite2": "",
+                    "image_path": null
+                }
+            ]
+        }
+    }
+]
