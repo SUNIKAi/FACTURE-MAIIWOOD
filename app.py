@@ -454,12 +454,11 @@ def main():
                 type=['png', 'jpg', 'jpeg'],
                 key=f"photo_{idx}"
             )
-            if uploaded_file:
-                service['image_path'] = save_image(uploaded_file)
+        if uploaded_file:
+            service['image_path'] = save_image(uploaded_file)
         with col3:
             service['prix_unitaire'] = st.number_input(
                 "Prix/u", 
-                value=float(service['prix_unitaire'"Prix/u", 
                 value=float(service['prix_unitaire']),
                 min_value=0.0,
                 step=0.01,
