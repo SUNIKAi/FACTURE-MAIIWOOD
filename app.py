@@ -274,14 +274,18 @@ def create_pdf(data, show_total=False):
 
 
     # Mentions légales
-y_mentions = y_terms - 100
-c.setFont("Helvetica-Bold", 10)
-c.drawString(50, y_mentions, "Mention légale")
-c.line(50, y_mentions - 2, 130, y_mentions - 2)  # Soulignement
+    y_mentions = y_terms - 100
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(50, y_mentions, "Mention légale")
+    c.line(50, y_mentions - 2, 130, y_mentions - 2)  # Soulignement
 
-c.setFont("Helvetica", 7)
-    mentions_text = [
-        "*Garantie légale de conformité : Les produits vendus bénéficient
+    # Mentions légales
+    y_mentions = y_terms - 100
+    c.setFont("Helvetica-Bold", 10)
+    c.drawString(50, y_mentions, "Mention légale")
+    c.line(50, y_mentions - 2, 130, y_mentions - 2)  # Soulignement
+
+    c.setFont("Helvetica", 7)
     mentions_text = [
         "*Garantie légale de conformité : Les produits vendus bénéficient d'une garantie légale de conformité de 2 ans à compter de la livraison,",
         "conformément aux articles L.217-3 et suivants du Code de la consommation.",
