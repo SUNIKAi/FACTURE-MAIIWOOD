@@ -444,24 +444,9 @@ def main():
     else:
         adresse_livraison = ""
 
-    # Section produits
-    st.header("Produits")
-    
-    if 'services' not in st.session_state:
-        st.session_state.services = []
-    
-    if st.button("Ajouter un produit"):
-        st.session_state.services.append({
-            "prestation": "",
-            "prix_unitaire": 0.0,
-            "quantite": 1.0,
-            "prix_total": 0.0,
-            "image_path": None
-        })
-    
-Non, il y a une duplication dans le code. La section d'upload de photo apparaît deux fois : une fois dans col1 et une fois dans col2. Voici la version corrigée :
-pythonCopy# Affichage des produits avec photos
+# Affichage des produits avec photos
 for idx, service in enumerate(st.session_state.services):
+    st.markdown("---")  # Séparateur entre les produits
     col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
     with col1:
         service['prestation'] = st.text_area(
@@ -496,10 +481,8 @@ for idx, service in enumerate(st.session_state.services):
             st.session_state.services.pop(idx)
             st.rerun()
     
-    # Section photo en dessous des colonnes
-    st.write("Photo du produit")
     uploaded_file = st.file_uploader(
-        "",
+        "Photo du produit",
         type=['png', 'jpg', 'jpeg'],
         key=f"photo_{idx}",
         help="Formats acceptés : PNG, JPG, JPEG"
