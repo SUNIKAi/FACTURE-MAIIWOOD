@@ -19,23 +19,11 @@ locale.setlocale(locale.LC_ALL, '')
 def format_number(number):
     return locale.format_string("%.2f", number, grouping=True)
 
-def load_client_history():
-    if os.path.exists('client_history.json'):
-        with open('client_history.json', 'r', encoding='utf-8') as f:
+def load_invoices():
+    if os.path.exists('invoices.json'):
+        with open('invoices.json', 'r', encoding='utf-8') as f:
             return json.load(f)
-    return {'noms': [], 'entreprises': [], 'emails': []}
-
-def save_client_history(client_data):
-    history = load_client_history()
-    if client_data['nom'] and client_data['nom'] not in history['noms']:
-        history['noms'].append(client_data['nom'])
-    if client_data['entreprise'] and client_data['entreprise'] not in history['entreprises']:
-        history['entreprises'].append(client_data['entreprise'])
-    if client_data['email'] and client_data['email'] not in history['emails']:
-        history['emails'].append(client_data['email'])
-    
-    with open('client_history.json', 'w', encoding='utf-8') as f:
-        json.dump(history, f, ensure_ascii=False, indent=4)
+    return []
 
 def save_invoice(data):
     if not os.path.exists('invoices.json'):
@@ -50,17 +38,22 @@ def save_invoice(data):
     with open('invoices.json', 'w', encoding='utf-8') as f:
         json.dump(invoices, f, ensure_ascii=False, indent=4)
 
-def load_invoices():
+def delete_invoice(invoice_number):
     if os.path.exists('invoices.json'):
         with open('invoices.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
+            invoices = json.load(f)
+        
+        invoices = [inv for inv in invoices if inv['numero'] != invoice_number]
+        
+        with open('invoices.json', 'w', encoding='utf-8') as f:
+            json.dump(invoices, f, ensure_ascii=False, indent=4)
+        return True
+    return False
 
-def create_pdf(data, show_total=False):
+def create_pdf(data, total_ttc=None):
     buffer = io.BytesIO()
     width, height = A4
 
-    # Création du PDF
     c = canvas.Canvas(buffer, pagesize=A4)
     
     # En-tête
@@ -84,34 +77,28 @@ def create_pdf(data, show_total=False):
     c.setFont("Helvetica-Bold", 12)
     x = 350
     y = height - 120
-    text = "À destination de : " + data['client_nom'] 
+    text = "À destination de : " + data['client_nom']
     text_width = c.stringWidth(text, "Helvetica-Bold", 12)
     c.drawString(x, y, text)
     c.line(x, y-2, x + text_width, y-2)
     
     c.setFont("Helvetica", 10)
-    entreprise_text = data['client_entreprise']
+    adresse_text = data['adresse_client']
+    telephone_text = data['telephone_client']
     email_text = data['client_email']
     
-    x_entreprise = x + (text_width - c.stringWidth(entreprise_text, "Helvetica", 10)) / 2
-    x_email = x + (text_width - c.stringWidth(email_text, "Helvetica", 10)) / 2
-    
-    c.drawString(x_entreprise, height - 135, entreprise_text)
-    c.drawString(x_email, height - 150, email_text)
+    c.drawString(x, height - 135, adresse_text)
+    c.drawString(x, height - 150, telephone_text)
+    c.drawString(x, height - 165, email_text)
 
-    # Tableau des services
+    # Tableau des produits
     y = height - 300
-    
     styles = getSampleStyleSheet()
-    
-    # En-têtes et largeurs des colonnes
     headers = ['Description', 'Prix/u', 'Quantité', 'Prix total']
     col_widths = [(width-100)*0.4, (width-100)*0.2, (width-100)*0.2, (width-100)*0.2]
-    
     table_data = [headers]
     
     total_ht = 0
-    # Données du tableau
     for service in data['services']:
         description = Paragraph(
             service['prestation'].replace('\n', '<br/>'),
@@ -176,70 +163,65 @@ def create_pdf(data, show_total=False):
     c.line(x_totals + 2, y_accord - 60, x_totals + totals_width - 2, y_accord - 60)
     
     # Texte des totaux
+    remise = data.get('remise', 0)
+    total_ttc = total_ht - remise
+    
     c.drawString(x_totals + 10, y_accord - 15, f"Total HT: {format_number(total_ht)} €")
-    c.drawString(x_totals + 10, y_accord - 35, "Remise: 0,00 €")
+    c.drawString(x_totals + 10, y_accord - 35, f"Remise: {format_number(remise)} €")
     c.drawString(x_totals + 10, y_accord - 55, "TVA: 0,00%")
     c.setFont("Helvetica-Bold", 10)
-    c.drawString(x_totals + 10, y_accord - 75, f"Total TTC: {format_number(total_ht)} €")
-
-    # Ligne de séparation
-    y_sep = y_accord - totals_height - 30
+    c.drawString(x_totals + 10, y_accord - 75, f"Total TTC: {format_number(total_ttc)} €")
+    # Ligne de séparation et bas de page
+    y_sep = height - 700
     c.line(50, y_sep, width-50, y_sep)
 
-    # Bas de page
-    y_footer = y_sep - 30
+    y_footer = y_sep - 20
 
     # Section Livraison
     c.setFont("Helvetica-Bold", 10)
     c.drawString(50, y_footer, "Livraison")
-    c.line(50, y_footer - 2, 100, y_footer - 2)  # Soulignement
+    c.line(50, y_footer - 2, 100, y_footer - 2)
     
-    # Contenu livraison
     c.setFont("Helvetica", 9)
     if data.get('mode_livraison') == 'enlevement':
-        c.drawString(50, y_footer - 20, "Enlèvement à :")
-        c.drawString(50, y_footer - 35, "521 route du port d'Arciat")
-        c.drawString(50, y_footer - 50, "Creche sur Saône 71680")
+        c.drawString(50, y_footer - 15, "Enlèvement à :")
+        c.drawString(50, y_footer - 25, "521 route du port d'Arciat")
+        c.drawString(50, y_footer - 35, "Creche sur Saône 71680")
     else:
-        c.drawString(50, y_footer - 20, "Adresse :")
-        c.drawString(50, y_footer - 35, data.get('adresse_livraison', ''))
+        c.drawString(50, y_footer - 15, "Adresse de livraison :")
+        # Séparer l'adresse en lignes si nécessaire
+        adresse_lines = data.get('adresse_livraison', '').split('\n')
+        for i, line in enumerate(adresse_lines):
+            c.drawString(50, y_footer - 25 - (i * 10), line)
 
     # Terms
     c.setFont("Helvetica-Bold", 10)
     y_terms = y_footer - 80
     c.drawString(50, y_terms, "Terms")
-    c.line(50, y_terms - 2, 85, y_terms - 2)  # Soulignement
+    c.line(50, y_terms - 2, 85, y_terms - 2)
     
     c.setFont("Helvetica", 9)
-    c.drawString(50, y_terms - 20, "* Condition de réglement paiement complet")
-    c.drawString(50, y_terms - 35, "  à livraison ou enlèvement du produit")
-    c.drawString(50, y_terms - 55, "* Accompte de 30% pour réservation")
-    c.drawString(50, y_terms - 70, "  avant livraison ou enlèvement ultérieur")
+    c.drawString(50, y_terms - 15, "* Condition de réglement paiement complet")
+    c.drawString(50, y_terms - 25, "  à livraison ou enlèvement du produit")
+    c.drawString(50, y_terms - 40, "* Accompte de 30% pour réservation")
+    c.drawString(50, y_terms - 50, "  avant livraison ou enlèvement ultérieur")
 
-    # Section Paiement
+    # Section Paiement avec tableau
     c.setFont("Helvetica-Bold", 10)
     c.drawString(width/2, y_footer, "Paiement:")
-    c.line(width/2, y_footer - 2, width/2 + 60, y_footer - 2)  # Soulignement
+    c.line(width/2, y_footer - 2, width/2 + 60, y_footer - 2)
 
-    # Tableau de paiement
-    payment_data = [
-        ['Banque', 'Indicatif', 'N° compte', 'Clé RIB', 'Domiciliation'],
-        ['12135', '300', '4195188867', '14', 'MACON EUROPE'],
-        ['IBAN:', 'FR76 1213 5003 0004 1951 8886 714', '', '', ''],
-        ['BIC:', 'CEPAFRPP213', '', '', ''],
-        ['Nom:', 'Bergeron Quentin', '', '', '']
-    ]
-
-    col_widths = [40, 40, 80, 30, 58]  # Largeurs des colonnes
+    # Tableau de paiement avec dimensions ajustées
+    col_widths = [45, 45, 70, 35, 53]  # Total = 248
     y_payment = y_footer - 20
     x_payment = width/2
 
-    # Fond gris clair pour le tableau
+    # Fond du tableau
     c.setFillColor(colors.Color(0.95, 0.95, 0.95))
     c.rect(x_payment, y_payment - 125, sum(col_widths), 125, fill=1)
     c.setFillColor(colors.black)
 
-    # Dessiner le tableau
+    # Structure du tableau
     c.setFont("Helvetica", 8)
     
     # Lignes horizontales
@@ -247,46 +229,50 @@ def create_pdf(data, show_total=False):
         y = y_payment - (i * 25)
         c.line(x_payment, y, x_payment + sum(col_widths), y)
 
-    # Lignes verticales pour les deux premières lignes
+    # Lignes verticales
     x_current = x_payment
-    for width in col_widths:
-        if x_current == x_payment:  # Première colonne
+    for i, width_col in enumerate(col_widths):
+        if i == 0:  # Première colonne
             c.line(x_current, y_payment, x_current, y_payment - 125)
-        else:
+        else:  # Autres colonnes seulement pour les deux premières lignes
             c.line(x_current, y_payment, x_current, y_payment - 50)
-        x_current += width
+        x_current += width_col
     c.line(x_payment + sum(col_widths), y_payment, x_payment + sum(col_widths), y_payment - 125)
 
-    # Remplir le contenu
-    for row_idx, row in enumerate(payment_data):
-        y = y_payment - 17 - (row_idx * 25)
-        x = x_payment
-        for col_idx, cell in enumerate(row):
-            if row_idx <= 1:  # Deux premières lignes
-                c.drawString(x + 5, y, cell)
-                x += col_widths[col_idx]
-            else:  # Lignes avec fusion
-                if col_idx == 0:
-                    c.drawString(x + 5, y, cell)
-                elif col_idx == 1:
-                    c.drawString(x + 5, y, row[1])
-                    break
+    # Contenu du tableau
+    headers = ['Banque', 'Indicatif', 'N° compte', 'Clé RIB', 'Domiciliation']
+    data_row = ['12135', '300', '4195188867', '14', 'MACON EUROPE']
+    
+    # En-têtes
+    x = x_payment
+    for i, header in enumerate(headers):
+        c.drawString(x + 5, y_payment - 15, header)
+        x += col_widths[i]
 
+    # Données première ligne
+    x = x_payment
+    for i, value in enumerate(data_row):
+        c.drawString(x + 5, y_payment - 40, value)
+        x += col_widths[i]
+
+    # Lignes avec fusion
+    c.drawString(x_payment + 5, y_payment - 65, "IBAN:")
+    c.drawString(x_payment + col_widths[0] + 5, y_payment - 65, "FR76 1213 5003 0004 1951 8886 714")
+    
+    c.drawString(x_payment + 5, y_payment - 90, "BIC:")
+    c.drawString(x_payment + col_widths[0] + 5, y_payment - 90, "CEPAFRPP213")
+    
+    c.drawString(x_payment + 5, y_payment - 115, "Nom:")
+    c.drawString(x_payment + col_widths[0] + 5, y_payment - 115, "Bergeron Quentin")
 
     # Mentions légales
-    y_mentions = y_terms - 100
+    y_mentions = y_terms - 90
     c.setFont("Helvetica-Bold", 10)
     c.drawString(50, y_mentions, "Mention légale")
-    c.line(50, y_mentions - 2, 130, y_mentions - 2)  # Soulignement
-
-    # Mentions légales
-    y_mentions = y_terms - 100
-    c.setFont("Helvetica-Bold", 10)
-    c.drawString(50, y_mentions, "Mention légale")
-    c.line(50, y_mentions - 2, 130, y_mentions - 2)  # Soulignement
+    c.line(50, y_mentions - 2, 130, y_mentions - 2)
 
     c.setFont("Helvetica", 7)
-    mentions_text = [
+    mentions = [
         "*Garantie légale de conformité : Les produits vendus bénéficient d'une garantie légale de conformité de 2 ans à compter de la livraison,",
         "conformément aux articles L.217-3 et suivants du Code de la consommation.",
         "*Garantie contre les vices cachés : Les produits sont également couverts par une garantie contre les vices cachés pendant 2 ans à compter",
@@ -294,12 +280,13 @@ def create_pdf(data, show_total=False):
         "Pour toute question ou réclamation, veuillez contacter notre service client : 0622037204"
     ]
     
-    for idx, line in enumerate(mentions_text):
-        c.drawString(50, y_mentions - 20 - (idx * 10), line)
+    for i, line in enumerate(mentions):
+        c.drawString(50, y_mentions - 15 - (i * 10), line)
 
     c.save()
     buffer.seek(0)
     return buffer
+
 
 def main():
     st.title("Générateur de Factures")
@@ -309,13 +296,15 @@ def main():
         st.session_state.current_data = {
             'numero': "001",
             'client_nom': "",
-            'client_entreprise': "",
+            'adresse_client': "",
+            'telephone_client': "",
             'client_email': "",
             'services': [],
             'mode_livraison': 'enlevement',
-            'adresse_livraison': ""
+            'adresse_livraison': "",
+            'remise': 0.0
         }
-    
+
     # Boutons en haut de l'interface
     col1, col2 = st.columns(2)
     with col1:
@@ -323,11 +312,13 @@ def main():
             st.session_state.current_data = {
                 'numero': "001",
                 'client_nom': "",
-                'client_entreprise': "",
+                'adresse_client': "",
+                'telephone_client': "",
                 'client_email': "",
                 'services': [],
                 'mode_livraison': 'enlevement',
-                'adresse_livraison': ""
+                'adresse_livraison': "",
+                'remise': 0.0
             }
             st.session_state.services = []
             st.rerun()
@@ -335,7 +326,7 @@ def main():
     with col2:
         if st.button("Historique"):
             st.session_state.show_history = True
-            
+    
     # Affichage de l'historique
     if 'show_history' in st.session_state and st.session_state.show_history:
         invoices = load_invoices()
@@ -345,11 +336,20 @@ def main():
                 options=invoices,
                 format_func=lambda x: f"Facture {x['numero']} - {x['client_nom']} - {x.get('date', 'N/A')}"
             )
-            if selected_invoice and st.button("Charger cette facture"):
-                st.session_state.current_data = selected_invoice
-                st.session_state.services = selected_invoice['services']
-                st.session_state.show_history = False
-                st.rerun()
+            col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Charger cette facture"):
+                    st.session_state.current_data = selected_invoice
+                    st.session_state.services = selected_invoice['services']
+                    st.session_state.show_history = False
+                    st.rerun()
+            with col2:
+                if st.button("Supprimer cette facture"):
+                    if delete_invoice(selected_invoice['numero']):
+                        st.success("Facture supprimée avec succès!")
+                        st.rerun()
+                    else:
+                        st.error("Erreur lors de la suppression de la facture")
         else:
             st.info("Aucune facture dans l'historique")
             if st.button("Fermer l'historique"):
@@ -359,87 +359,36 @@ def main():
     # Formulaire principal
     st.header("Informations client")
     
-    # Chargement de l'historique des clients
-    client_history = load_client_history()
-    
     numero = st.text_input("Numéro facture", value=st.session_state.current_data['numero'])
-    
-    # Champs client avec suggestions
-    client_nom = st.text_input(
-        "Nom du client",
-        value=st.session_state.current_data['client_nom'],
-        key="client_nom"
-    )
-    if client_nom == "":  # Afficher les suggestions uniquement si le champ est vide
-        nom_suggestion = st.selectbox(
-            "Suggestions noms précédents",
-            options=[""] + client_history['noms'],
-            key="nom_suggestion"
-        )
-        if nom_suggestion:
-            st.session_state.current_data['client_nom'] = nom_suggestion
-            st.rerun()
+    client_nom = st.text_input("Nom du client", value=st.session_state.current_data['client_nom'])
+    adresse_client = st.text_input("Adresse client", value=st.session_state.current_data['adresse_client'])
+    telephone_client = st.text_input("Téléphone client", value=st.session_state.current_data['telephone_client'])
+    client_email = st.text_input("Email client", value=st.session_state.current_data['client_email'])
 
-    client_entreprise = st.text_input(
-        "Entreprise du client",
-        value=st.session_state.current_data['client_entreprise'],
-        key="client_entreprise"
-    )
-    if client_entreprise == "":
-        entreprise_suggestion = st.selectbox(
-            "Suggestions entreprises précédentes",
-            options=[""] + client_history['entreprises'],
-            key="entreprise_suggestion"
-        )
-        if entreprise_suggestion:
-            st.session_state.current_data['client_entreprise'] = entreprise_suggestion
-            st.rerun()
-
-    client_email = st.text_input(
-        "Email du client",
-        value=st.session_state.current_data['client_email'],
-        key="client_email"
-    )
-    if client_email == "":
-        email_suggestion = st.selectbox(
-            "Suggestions emails précédents",
-            options=[""] + client_history['emails'],
-            key="email_suggestion"
-        )
-        if email_suggestion:
-            st.session_state.current_data['client_email'] = email_suggestion
-            st.rerun()
-
-    # Section livraison
+    # Mode de livraison
     st.header("Mode de livraison")
     mode_livraison = st.radio(
         "Choisir le mode de livraison",
         ['enlevement', 'livraison'],
-        key="mode_livraison",
         horizontal=True,
         index=0 if st.session_state.current_data['mode_livraison'] == 'enlevement' else 1
     )
-    
+
     if mode_livraison == 'livraison':
         adresse_livraison = st.text_area(
             "Adresse de livraison",
-            value=st.session_state.current_data['adresse_livraison'],
-            key="adresse_livraison"
+            value=st.session_state.current_data.get('adresse_livraison', '')
         )
+    else:
+        adresse_livraison = ""
+
+    # Section produits
+    st.header("Produits")
     
-    # Section des prestations
-    st.header("Services")
-    
-    # Liste pour stocker les services
     if 'services' not in st.session_state:
         st.session_state.services = []
     
-    # Fonction pour calculer le prix total
-    def calculate_total(prix, quantite):
-        return float(prix) * float(quantite)
-    
-    # Ajouter un service
-    if st.button("Ajouter un service"):
+    if st.button("Ajouter un produit"):
         st.session_state.services.append({
             "prestation": "",
             "prix_unitaire": 0.0,
@@ -447,86 +396,90 @@ def main():
             "prix_total": 0.0
         })
     
-    # Conteneur pour les services
-    services_container = st.container()
-    
-    # Afficher et modifier les services
+    # Affichage des produits avec calcul automatique du total
     for idx, service in enumerate(st.session_state.services):
-        with services_container:
-            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
-            
-            with col1:
-                service['prestation'] = st.text_area(
-                    "Description", 
-                    value=service['prestation'], 
-                    key=f"presta_{idx}",
-                    height=100,
-                    max_chars=200
-                )
-            with col2:
-                service['prix_unitaire'] = st.number_input(
-                    "Prix/u", 
-                    value=float(service['prix_unitaire']),
-                    min_value=0.0,
-                    step=0.01,
-                    key=f"prix_{idx}"
-                )
-            with col3:
-                service['quantite'] = st.number_input(
-                    "Quantité", 
-                    value=float(service['quantite']),
-                    min_value=1.0,
-                    step=1.0,
-                    key=f"qte_{idx}"
-                )
-            with col4:
-                service['prix_total'] = calculate_total(
-                    service['prix_unitaire'], 
-                    service['quantite']
-                )
-                st.text(f"{format_number(service['prix_total'])} €")
-            with col5:
-                if st.button("❌", key=f"del_{idx}"):
-                    st.session_state.services.pop(idx)
-                    st.rerun()
-    
-    # Option pour afficher le total HT
-    show_total = st.checkbox("Afficher le total HT")
-    
-    if show_total and st.session_state.services:
-        total_ht = sum(service['prix_total'] for service in st.session_state.services)
-        st.subheader(f"Total HT: {format_number(total_ht)} €")
+        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
+        with col1:
+            service['prestation'] = st.text_area(
+                "Description", 
+                value=service['prestation'], 
+                key=f"presta_{idx}",
+                height=100
+            )
+        with col2:
+            service['prix_unitaire'] = st.number_input(
+                "Prix/u", 
+                value=float(service['prix_unitaire']),
+                min_value=0.0,
+                step=0.01,
+                key=f"prix_{idx}"
+            )
+        with col3:
+            service['quantite'] = st.number_input(
+                "Quantité", 
+                value=float(service['quantite']),
+                min_value=1.0,
+                step=1.0,
+                key=f"qte_{idx}"
+            )
+        with col4:
+            service['prix_total'] = service['prix_unitaire'] * service['quantite']
+            st.text(f"{format_number(service['prix_total'])} €")
+        with col5:
+            if st.button("❌", key=f"del_{idx}"):
+                st.session_state.services.pop(idx)
+                st.rerun()
 
-    # Génération du PDF
-    if st.button("Générer la facture"):
-        data = {
-            'numero': numero,
-            'client_nom': client_nom,
-            'client_entreprise': client_entreprise,
-            'client_email': client_email,
-            'services': st.session_state.services,
-            'mode_livraison': mode_livraison,
-            'adresse_livraison': adresse_livraison if mode_livraison == 'livraison' else ""
-        }
+    # Calculs et affichage des totaux
+    if st.session_state.services:
+        total_ht = sum(service['prix_total'] for service in st.session_state.services)
         
-        # Sauvegarder les données client pour l'historique
-        save_client_history({
-            'nom': client_nom,
-            'entreprise': client_entreprise,
-            'email': client_email
-        })
+        st.header("Totaux")
+        col1, col2, col3 = st.columns(3)
         
-        # Sauvegarder la facture
-        save_invoice(data)
+        with col1:
+            st.text(f"Total HT: {format_number(total_ht)} €")
         
-        pdf_buffer = create_pdf(data, show_total=show_total)
-        st.success("Facture générée avec succès !")
-        st.download_button(
-            label="Télécharger la facture",
-            data=pdf_buffer,
-            file_name=f"facture_{numero}.pdf",
-            mime="application/pdf"
-        )
+        with col2:
+            remise = st.number_input(
+                "Remise (€)", 
+                value=float(st.session_state.current_data.get('remise', 0)),
+                min_value=0.0,
+                max_value=float(total_ht),
+                step=0.01
+            )
+        
+        with col3:
+            st.text("TVA: 0,00%")
+            total_ttc = total_ht - remise
+            st.text(f"Total TTC: {format_number(total_ttc)} €")
+
+        # Génération du PDF
+        if st.button("Générer la facture"):
+            data = {
+                'numero': numero,
+                'client_nom': client_nom,
+                'adresse_client': adresse_client,
+                'telephone_client': telephone_client,
+                'client_email': client_email,
+                'services': st.session_state.services,
+                'mode_livraison': mode_livraison,
+                'adresse_livraison': adresse_livraison,
+                'remise': remise
+            }
+            
+            # Sauvegarder la facture
+            save_invoice(data)
+            
+            # Générer le PDF
+            pdf_buffer = create_pdf(data, total_ttc)
+            st.success("Facture générée avec succès !")
+            st.download_button(
+                label="Télécharger la facture",
+                data=pdf_buffer,
+                file_name=f"facture_{numero}.pdf",
+                mime="application/pdf"
+            )
 
 if __name__ == "__main__":
     main()
