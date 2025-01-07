@@ -7,11 +7,13 @@ import streamlit as st
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
+from reportlab.lib.units import mm, inch
 import locale
 import json
+from PIL import Image as PILImage
+from io import BytesIO
 
 # Configuration du format des nombres
 locale.setlocale(locale.LC_ALL, '')
@@ -24,6 +26,24 @@ def load_invoices():
         with open('invoices.json', 'r', encoding='utf-8') as f:
             return json.load(f)
     return []
+
+def save_image(uploaded_file):
+    if uploaded_file is not None:
+        # Créer un dossier pour les images s'il n'existe pas
+        os.makedirs('product_images', exist_ok=True)
+        
+        # Ouvrir et redimensionner l'image
+        image = PILImage.open(uploaded_file)
+        
+        # Calculer les dimensions pour maintenir le ratio
+        max_size = (200, 200)
+        image.thumbnail(max_size, PILImage.Resampling.LANCZOS)
+        
+        # Sauvegarder l'image
+        file_path = os.path.join('product_images', uploaded_file.name)
+        image.save(file_path)
+        return file_path
+    return None
 
 def save_invoice(data):
     if not os.path.exists('invoices.json'):
@@ -54,7 +74,9 @@ def create_pdf(data, total_ttc=None):
     buffer = io.BytesIO()
     width, height = A4
 
-    c = canvas.Canvas(buffer, pagesize=A4)
+    # Création du PDF avec titre personnalisé
+    title = f"Facture - {data['numero']} - {data['client_nom']}"
+    c = canvas.Canvas(buffer, pagesize=A4, title=title)
     
     # En-tête
     c.setFont("Helvetica-Bold", 16)
@@ -94,12 +116,13 @@ def create_pdf(data, total_ttc=None):
     # Tableau des produits
     y = height - 300
     styles = getSampleStyleSheet()
-    headers = ['Description', 'Prix/u', 'Quantité', 'Prix total']
-    col_widths = [(width-100)*0.4, (width-100)*0.2, (width-100)*0.2, (width-100)*0.2]
+    headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
+    col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, (width-100)*0.15, (width-100)*0.2]
     table_data = [headers]
     
     total_ht = 0
     for service in data['services']:
+        # Préparation de la description
         description = Paragraph(
             service['prestation'].replace('\n', '<br/>'),
             ParagraphStyle(
@@ -109,8 +132,22 @@ def create_pdf(data, total_ttc=None):
                 wordWrap='CJK'
             )
         )
+        
+        # Gestion de l'image
+        if service.get('image_path'):
+            try:
+                img = Image(service['image_path'])
+                aspect = img.drawHeight / img.drawWidth
+                img.drawWidth = 1.2*inch
+                img.drawHeight = 1.2*inch * aspect
+            except:
+                img = ''
+        else:
+            img = ''
+
         row = [
             description,
+            img,
             f"{format_number(service['prix_unitaire'])} €",
             format_number(service['quantite']),
             f"{format_number(service['prix_total'])} €"
@@ -121,16 +158,16 @@ def create_pdf(data, total_ttc=None):
     table = Table(table_data, colWidths=col_widths)
     style = TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
-        ('ALIGN', (1, 0), (-1, -1), 'RIGHT'),
+        ('ALIGN', (1, 0), (1, -1), 'CENTER'),
+        ('ALIGN', (2, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
         ('FONT', (0, 0), (-1, 0), 'Helvetica-Bold', 10),
         ('FONT', (0, 1), (-1, -1), 'Helvetica', 10),
         ('GRID', (0, 0), (-1, -1), 0.25, colors.black),
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
     ])
     table.setStyle(style)
-
-    table.wrapOn(c, width, height)
+table.wrapOn(c, width, height)
     table_height = table.wrap(width - 100, height)[1]
     table.drawOn(c, 50, y - table_height)
     
@@ -171,8 +208,9 @@ def create_pdf(data, total_ttc=None):
     c.drawString(x_totals + 10, y_accord - 55, "TVA: 0,00%")
     c.setFont("Helvetica-Bold", 10)
     c.drawString(x_totals + 10, y_accord - 75, f"Total TTC: {format_number(total_ttc)} €")
+
     # Ligne de séparation et bas de page
-    y_sep = height - 700
+    y_sep = height - 600
     c.line(50, y_sep, width-50, y_sep)
 
     y_footer = y_sep - 20
@@ -189,34 +227,33 @@ def create_pdf(data, total_ttc=None):
         c.drawString(50, y_footer - 35, "Creche sur Saône 71680")
     else:
         c.drawString(50, y_footer - 15, "Adresse de livraison :")
-        # Séparer l'adresse en lignes si nécessaire
         adresse_lines = data.get('adresse_livraison', '').split('\n')
         for i, line in enumerate(adresse_lines):
             c.drawString(50, y_footer - 25 - (i * 10), line)
 
     # Terms
     c.setFont("Helvetica-Bold", 10)
-    y_terms = y_footer - 80
+    y_terms = y_footer - 60
     c.drawString(50, y_terms, "Terms")
     c.line(50, y_terms - 2, 85, y_terms - 2)
     
     c.setFont("Helvetica", 9)
     c.drawString(50, y_terms - 15, "* Condition de réglement paiement complet")
     c.drawString(50, y_terms - 25, "  à livraison ou enlèvement du produit")
-    c.drawString(50, y_terms - 40, "* Accompte de 30% pour réservation")
-    c.drawString(50, y_terms - 50, "  avant livraison ou enlèvement ultérieur")
+    c.drawString(50, y_terms - 35, "* Accompte de 30% pour réservation")
+    c.drawString(50, y_terms - 45, "  avant livraison ou enlèvement ultérieur")
 
-    # Section Paiement avec tableau
+    # Section Paiement
     c.setFont("Helvetica-Bold", 10)
     c.drawString(width/2, y_footer, "Paiement:")
     c.line(width/2, y_footer - 2, width/2 + 60, y_footer - 2)
 
-    # Tableau de paiement avec dimensions ajustées
+    # Tableau de paiement ajusté
     col_widths = [45, 45, 70, 35, 53]  # Total = 248
     y_payment = y_footer - 20
     x_payment = width/2
 
-    # Fond du tableau
+    # Fond gris clair pour le tableau
     c.setFillColor(colors.Color(0.95, 0.95, 0.95))
     c.rect(x_payment, y_payment - 125, sum(col_widths), 125, fill=1)
     c.setFillColor(colors.black)
@@ -241,7 +278,7 @@ def create_pdf(data, total_ttc=None):
 
     # Contenu du tableau
     headers = ['Banque', 'Indicatif', 'N° compte', 'Clé RIB', 'Domiciliation']
-    data_row = ['12135', '300', '4195188867', '14', 'MACON EUROPE']
+    data_row = ['12135', '300', '4195188867', '14', 'MACON\nEUROPE']
     
     # En-têtes
     x = x_payment
@@ -249,10 +286,14 @@ def create_pdf(data, total_ttc=None):
         c.drawString(x + 5, y_payment - 15, header)
         x += col_widths[i]
 
-    # Données première ligne
+    # Données première ligne avec MACON EUROPE sur deux lignes
     x = x_payment
     for i, value in enumerate(data_row):
-        c.drawString(x + 5, y_payment - 40, value)
+        if i == 4:  # Pour MACON EUROPE
+            c.drawString(x + 5, y_payment - 35, "MACON")
+            c.drawString(x + 5, y_payment - 45, "EUROPE")
+        else:
+            c.drawString(x + 5, y_payment - 40, value)
         x += col_widths[i]
 
     # Lignes avec fusion
@@ -266,7 +307,7 @@ def create_pdf(data, total_ttc=None):
     c.drawString(x_payment + col_widths[0] + 5, y_payment - 115, "Bergeron Quentin")
 
     # Mentions légales
-    y_mentions = y_terms - 90
+    y_mentions = y_terms - 70
     c.setFont("Helvetica-Bold", 10)
     c.drawString(50, y_mentions, "Mention légale")
     c.line(50, y_mentions - 2, 130, y_mentions - 2)
@@ -393,12 +434,13 @@ def main():
             "prestation": "",
             "prix_unitaire": 0.0,
             "quantite": 1.0,
-            "prix_total": 0.0
+            "prix_total": 0.0,
+            "image_path": None
         })
     
-    # Affichage des produits avec calcul automatique du total
+    # Affichage des produits avec photos
     for idx, service in enumerate(st.session_state.services):
-        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
+        col1, col2, col3, col4, col5, col6 = st.columns([3, 1.5, 1, 1, 1, 0.5])
         with col1:
             service['prestation'] = st.text_area(
                 "Description", 
@@ -407,14 +449,23 @@ def main():
                 height=100
             )
         with col2:
+            uploaded_file = st.file_uploader(
+                "Photo", 
+                type=['png', 'jpg', 'jpeg'],
+                key=f"photo_{idx}"
+            )
+            if uploaded_file:
+                service['image_path'] = save_image(uploaded_file)
+        with col3:
             service['prix_unitaire'] = st.number_input(
                 "Prix/u", 
+                value=float(service['prix_unitaire'"Prix/u", 
                 value=float(service['prix_unitaire']),
                 min_value=0.0,
                 step=0.01,
                 key=f"prix_{idx}"
             )
-        with col3:
+        with col4:
             service['quantite'] = st.number_input(
                 "Quantité", 
                 value=float(service['quantite']),
@@ -422,11 +473,13 @@ def main():
                 step=1.0,
                 key=f"qte_{idx}"
             )
-        with col4:
+        with col5:
             service['prix_total'] = service['prix_unitaire'] * service['quantite']
             st.text(f"{format_number(service['prix_total'])} €")
-        with col5:
+        with col6:
             if st.button("❌", key=f"del_{idx}"):
+                if service.get('image_path') and os.path.exists(service['image_path']):
+                    os.remove(service['image_path'])
                 st.session_state.services.pop(idx)
                 st.rerun()
 
@@ -474,10 +527,13 @@ def main():
             # Générer le PDF
             pdf_buffer = create_pdf(data, total_ttc)
             st.success("Facture générée avec succès !")
+            
+            # Nom de fichier personnalisé
+            filename = f"Facture - {numero} - {client_nom}.pdf"
             st.download_button(
                 label="Télécharger la facture",
                 data=pdf_buffer,
-                file_name=f"facture_{numero}.pdf",
+                file_name=filename,
                 mime="application/pdf"
             )
 
