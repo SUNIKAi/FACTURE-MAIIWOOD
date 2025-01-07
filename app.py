@@ -459,59 +459,56 @@ def main():
             "image_path": None
         })
     
-    # Affichage des produits
-    for idx, service in enumerate(st.session_state.services):
-        st.markdown("---")
-        col1, col2 = st.columns([3, 1])
-        
-        with col1:
-            service['prestation'] = st.text_area(
-                "Description", 
-                value=service['prestation'], 
-                key=f"presta_{idx}",
-                height=100
-            )
-            
-            col_prix1, col_prix2, col_prix3, col_prix4 = st.columns([1, 1, 1, 0.5])
-            with col_prix1:
-                service['prix_unitaire'] = st.number_input(
-                    "Prix/u", 
-                    value=float(service['prix_unitaire']),
-                    min_value=0.0,
-                    step=0.01,
-                    key=f"prix_{idx}"
-                )
-            with col_prix2:
-                service['quantite'] = st.number_input(
-                    "Quantité", 
-                    value=float(service['quantite']),
-                    min_value=1.0,
-                    step=1.0,
-                    key=f"qte_{idx}"
-                )
-            with col_prix3:
-                service['prix_total'] = service['prix_unitaire'] * service['quantite']
-                st.text(f"{format_number(service['prix_total'])} €")
-            with col_prix4:
-                if st.button("❌", key=f"del_{idx}"):
-                    if service.get('image_path') and os.path.exists(service['image_path']):
-                        os.remove(service['image_path'])
-                    st.session_state.services.pop(idx)
-                    st.rerun()
-        
-        with col2:
-            st.write("Photo du produit")
-            uploaded_file = st.file_uploader(
-                "",
-                type=['png', 'jpg', 'jpeg'],
-                key=f"photo_{idx}",
-                help="Formats acceptés : PNG, JPG, JPEG"
-            )
-            if uploaded_file:
-                st.image(uploaded_file, width=150)
-                service['image_path'] = save_image(uploaded_file)
-            elif service.get('image_path') and os.path.exists(service['image_path']):
-                st.image(service['image_path'], width=150)
+Non, il y a une duplication dans le code. La section d'upload de photo apparaît deux fois : une fois dans col1 et une fois dans col2. Voici la version corrigée :
+pythonCopy# Affichage des produits avec photos
+for idx, service in enumerate(st.session_state.services):
+    col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 0.5])
+    with col1:
+        service['prestation'] = st.text_area(
+            "Description", 
+            value=service['prestation'], 
+            key=f"presta_{idx}",
+            height=100
+        )
+    with col2:
+        service['prix_unitaire'] = st.number_input(
+            "Prix/u", 
+            value=float(service['prix_unitaire']),
+            min_value=0.0,
+            step=0.01,
+            key=f"prix_{idx}"
+        )
+    with col3:
+        service['quantite'] = st.number_input(
+            "Quantité", 
+            value=float(service['quantite']),
+            min_value=1.0,
+            step=1.0,
+            key=f"qte_{idx}"
+        )
+    with col4:
+        service['prix_total'] = service['prix_unitaire'] * service['quantite']
+        st.text(f"{format_number(service['prix_total'])} €")
+    with col5:
+        if st.button("❌", key=f"del_{idx}"):
+            if service.get('image_path') and os.path.exists(service['image_path']):
+                os.remove(service['image_path'])
+            st.session_state.services.pop(idx)
+            st.rerun()
+    
+    # Section photo en dessous des colonnes
+    st.write("Photo du produit")
+    uploaded_file = st.file_uploader(
+        "",
+        type=['png', 'jpg', 'jpeg'],
+        key=f"photo_{idx}",
+        help="Formats acceptés : PNG, JPG, JPEG"
+    )
+    if uploaded_file:
+        st.image(uploaded_file, width=150)
+        service['image_path'] = save_image(uploaded_file)
+    elif service.get('image_path') and os.path.exists(service['image_path']):
+        st.image(service['image_path'], width=150)
 
     # Calculs et affichage des totaux
     if st.session_state.services:
