@@ -134,17 +134,22 @@ def create_pdf(data, total_ttc=None):
         )
         
         # Gestion de l'image
-        if service.get('image_path'):
+        if service.get('image_path') and os.path.exists(service['image_path']):
             try:
-                img = Image(service['image_path'])
-                aspect = img.drawHeight / img.drawWidth
-                img.drawWidth = 1.2*inch
-                img.drawHeight = 1.2*inch * aspect
-            except:
-                img = ''
-        else:
+                # Charger et redimensionner l'image
+            img = Image(service['image_path'])
+            # Définir une taille maximale pour la cellule
+            max_width = col_widths[1] - 10  # 5px de marge de chaque côté
+            max_height = 100  # hauteur maximale en points
+            
+            # Calculer le ratio pour conserver les proportions
+            ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
+            img.drawWidth *= ratio
+            img.drawHeight *= ratio
+        except:
             img = ''
-
+    else:
+        img = ''
         row = [
             description,
             img,
@@ -222,15 +227,10 @@ def create_pdf(data, total_ttc=None):
     
     c.setFont("Helvetica", 9)
     if data.get('mode_livraison') == 'enlevement':
-        c.drawString(50, y_footer - 15, "Enlèvement à :")
-        c.drawString(50, y_footer - 25, "521 route du port d'Arciat")
-        c.drawString(50, y_footer - 35, "Creche sur Saône 71680")
+        c.drawString(50, y_footer - 15, "Enlèvement à : 521 route du port d'Arciat, Creche sur Saône 71680")
     else:
-        c.drawString(50, y_footer - 15, "Adresse de livraison :")
-        adresse_lines = data.get('adresse_livraison', '').split('\n')
-        for i, line in enumerate(adresse_lines):
-            c.drawString(50, y_footer - 25 - (i * 10), line)
-
+        c.drawString(50, y_footer - 15, "Adresse de livraison : " + data.get('adresse_livraison', ''))
+        
     # Terms
     c.setFont("Helvetica-Bold", 10)
     y_terms = y_footer - 60
@@ -307,7 +307,7 @@ def create_pdf(data, total_ttc=None):
     c.drawString(x_payment + col_widths[0] + 5, y_payment - 115, "Bergeron Quentin")
 
     # Mentions légales
-    y_mentions = y_terms - 70
+    y_mentions = y_terms - 100
     c.setFont("Helvetica-Bold", 10)
     c.drawString(50, y_mentions, "Mention légale")
     c.line(50, y_mentions - 2, 130, y_mentions - 2)
@@ -449,13 +449,18 @@ def main():
                 height=100
             )
         with col2:
+            st.write("Photo du produit")
             uploaded_file = st.file_uploader(
-                "Photo", 
+                "Choisir une image",
                 type=['png', 'jpg', 'jpeg'],
-                key=f"photo_{idx}"
+                key=f"photo_{idx}",
+                help="Formats acceptés : PNG, JPG, JPEG"
             )
-        if uploaded_file:
-            service['image_path'] = save_image(uploaded_file)
+            if uploaded_file:
+                st.image(uploaded_file, width=150)
+                service['image_path'] = save_image(uploaded_file)
+            elif service.get('image_path') and os.path.exists(service['image_path']):
+                st.image(service['image_path'], width=150)
         with col3:
             service['prix_unitaire'] = st.number_input(
                 "Prix/u", 
