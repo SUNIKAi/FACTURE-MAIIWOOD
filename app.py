@@ -167,7 +167,7 @@ def create_pdf(data, total_ttc=None):
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
     ])
     table.setStyle(style)
-table.wrapOn(c, width, height)
+    table.wrapOn(c, width, height)
     table_height = table.wrap(width - 100, height)[1]
     table.drawOn(c, 50, y - table_height)
     
