@@ -307,7 +307,7 @@ def create_pdf(data, total_ttc=None):
     c.drawString(x_payment + col_widths[0] + 5, y_payment - 115, "Bergeron Quentin")
 
     # Mentions légales
-    y_mentions = y_terms - 100
+    y_mentions = y_terms - 80
     c.setFont("Helvetica-Bold", 10)
     c.drawString(50, y_mentions, "Mention légale")
     c.line(50, y_mentions - 2, 130, y_mentions - 2)
