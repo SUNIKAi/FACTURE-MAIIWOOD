@@ -136,20 +136,20 @@ def create_pdf(data, total_ttc=None):
         # Gestion de l'image
         if service.get('image_path') and os.path.exists(service['image_path']):
             try:
-            # Charger et redimensionner l'image
-            img = Image(service['image_path'])
-            # Définir une taille maximale pour la cellule
-            max_width = col_widths[1] - 10  # 5px de marge de chaque côté
-            max_height = 100  # hauteur maximale en points
+                # Charger et redimensionner l'image
+                img = Image(service['image_path'])
+                # Définir une taille maximale pour la cellule
+                max_width = col_widths[1] - 10  # 5px de marge de chaque côté
+                max_height = 100  # hauteur maximale en points
             
-            # Calculer le ratio pour conserver les proportions
-            ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
-            img.drawWidth *= ratio
-            img.drawHeight *= ratio
-        except:
+                # Calculer le ratio pour conserver les proportions
+                ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
+                img.drawWidth *= ratio
+                img.drawHeight *= ratio
+            except:
+                img = ''
+        else:
             img = ''
-    else:
-        img = ''
         row = [
             description,
             img,
