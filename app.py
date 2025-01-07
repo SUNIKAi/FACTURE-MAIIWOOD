@@ -77,6 +77,12 @@ def create_pdf(data, total_ttc=None):
     # Création du PDF avec titre personnalisé
     title = f"Facture - {data['numero']} - {data['client_nom']}"
     c = canvas.Canvas(buffer, pagesize=A4, title=title)
+    c._doc.info.update({
+        'Title': title,
+        'Author': 'MAIIWOODATELIER',
+        'Subject': 'Facture',
+        'Creator': 'MAIIWOODATELIER'
+    })
     
     # En-tête
     c.setFont("Helvetica-Bold", 16)
@@ -114,7 +120,7 @@ def create_pdf(data, total_ttc=None):
     c.drawString(x, height - 165, email_text)
 
     # Tableau des produits
-    y = height - 300
+    y = height - 250  # Remonté de 50 points
     styles = getSampleStyleSheet()
     headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
     col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, (width-100)*0.15, (width-100)*0.2]
@@ -141,7 +147,7 @@ def create_pdf(data, total_ttc=None):
                 # Définir une taille maximale pour la cellule
                 max_width = col_widths[1] - 10  # 5px de marge de chaque côté
                 max_height = 100  # hauteur maximale en points
-            
+                
                 # Calculer le ratio pour conserver les proportions
                 ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
                 img.drawWidth *= ratio
@@ -150,6 +156,7 @@ def create_pdf(data, total_ttc=None):
                 img = ''
         else:
             img = ''
+
         row = [
             description,
             img,
@@ -172,10 +179,21 @@ def create_pdf(data, total_ttc=None):
         ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
     ])
     table.setStyle(style)
+
     table.wrapOn(c, width, height)
     table_height = table.wrap(width - 100, height)[1]
-    table.drawOn(c, 50, y - table_height)
-    
+
+    # Vérifier si une nouvelle page est nécessaire
+    y_bas_page_minimum = 200  # Espace minimum nécessaire pour le bas de page
+    y_position_actuelle = y - table_height - 80 - 50  # 80 pour l'accord, 50 pour la marge
+
+    if y_position_actuelle < y_bas_page_minimum:
+        c.showPage()
+        y = height - 50
+        table.drawOn(c, 50, y - table_height)
+    else:
+        table.drawOn(c, 50, y - table_height)
+
     # Bon pour accord (à gauche)
     y_accord = y - table_height - 50
     c.setFont("Helvetica-Bold", 9)
@@ -191,7 +209,7 @@ def create_pdf(data, total_ttc=None):
     c.drawString(60, y_accord - 40, "Date :")
     c.drawString(60, y_accord - 60, "Signature :")
 
-    # Double encadré pour les totaux (à droite)
+# Double encadré pour les totaux (à droite)
     totals_width = 200
     totals_height = 80
     x_totals = width - 50 - totals_width
@@ -227,10 +245,14 @@ def create_pdf(data, total_ttc=None):
     
     c.setFont("Helvetica", 9)
     if data.get('mode_livraison') == 'enlevement':
-        c.drawString(50, y_footer - 15, "Enlèvement à : 521 route du port d'Arciat, Creche sur Saône 71680")
+        c.drawString(50, y_footer - 15, "Enlèvement à :")
+        c.drawString(50, y_footer - 30, "521 route du port d'Arciat, Creche sur Saône 71680")
     else:
-        c.drawString(50, y_footer - 15, "Adresse de livraison : " + data.get('adresse_livraison', ''))
-        
+        c.drawString(50, y_footer - 15, "Adresse de livraison :")
+        adresse_lines = data.get('adresse_livraison', '').split('\n')
+        for i, line in enumerate(adresse_lines):
+            c.drawString(50, y_footer - 30 - (i * 10), line)
+
     # Terms
     c.setFont("Helvetica-Bold", 10)
     y_terms = y_footer - 60
@@ -327,7 +349,6 @@ def create_pdf(data, total_ttc=None):
     c.save()
     buffer.seek(0)
     return buffer
-
 
 def main():
     st.title("Générateur de Factures")
@@ -438,9 +459,11 @@ def main():
             "image_path": None
         })
     
-    # Affichage des produits avec photos
+    # Affichage des produits
     for idx, service in enumerate(st.session_state.services):
-        col1, col2, col3, col4, col5, col6 = st.columns([3, 1.5, 1, 1, 1, 0.5])
+        st.markdown("---")
+        col1, col2 = st.columns([3, 1])
+        
         with col1:
             service['prestation'] = st.text_area(
                 "Description", 
@@ -448,10 +471,38 @@ def main():
                 key=f"presta_{idx}",
                 height=100
             )
+            
+            col_prix1, col_prix2, col_prix3, col_prix4 = st.columns([1, 1, 1, 0.5])
+            with col_prix1:
+                service['prix_unitaire'] = st.number_input(
+                    "Prix/u", 
+                    value=float(service['prix_unitaire']),
+                    min_value=0.0,
+                    step=0.01,
+                    key=f"prix_{idx}"
+                )
+            with col_prix2:
+                service['quantite'] = st.number_input(
+                    "Quantité", 
+                    value=float(service['quantite']),
+                    min_value=1.0,
+                    step=1.0,
+                    key=f"qte_{idx}"
+                )
+            with col_prix3:
+                service['prix_total'] = service['prix_unitaire'] * service['quantite']
+                st.text(f"{format_number(service['prix_total'])} €")
+            with col_prix4:
+                if st.button("❌", key=f"del_{idx}"):
+                    if service.get('image_path') and os.path.exists(service['image_path']):
+                        os.remove(service['image_path'])
+                    st.session_state.services.pop(idx)
+                    st.rerun()
+        
         with col2:
             st.write("Photo du produit")
             uploaded_file = st.file_uploader(
-                "Choisir une image",
+                "",
                 type=['png', 'jpg', 'jpeg'],
                 key=f"photo_{idx}",
                 help="Formats acceptés : PNG, JPG, JPEG"
@@ -461,31 +512,6 @@ def main():
                 service['image_path'] = save_image(uploaded_file)
             elif service.get('image_path') and os.path.exists(service['image_path']):
                 st.image(service['image_path'], width=150)
-        with col3:
-            service['prix_unitaire'] = st.number_input(
-                "Prix/u", 
-                value=float(service['prix_unitaire']),
-                min_value=0.0,
-                step=0.01,
-                key=f"prix_{idx}"
-            )
-        with col4:
-            service['quantite'] = st.number_input(
-                "Quantité", 
-                value=float(service['quantite']),
-                min_value=1.0,
-                step=1.0,
-                key=f"qte_{idx}"
-            )
-        with col5:
-            service['prix_total'] = service['prix_unitaire'] * service['quantite']
-            st.text(f"{format_number(service['prix_total'])} €")
-        with col6:
-            if st.button("❌", key=f"del_{idx}"):
-                if service.get('image_path') and os.path.exists(service['image_path']):
-                    os.remove(service['image_path'])
-                st.session_state.services.pop(idx)
-                st.rerun()
 
     # Calculs et affichage des totaux
     if st.session_state.services:
