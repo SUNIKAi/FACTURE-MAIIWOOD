@@ -136,7 +136,7 @@ def create_pdf(data, total_ttc=None):
         # Gestion de l'image
         if service.get('image_path') and os.path.exists(service['image_path']):
             try:
-                # Charger et redimensionner l'image
+            # Charger et redimensionner l'image
             img = Image(service['image_path'])
             # Définir une taille maximale pour la cellule
             max_width = col_widths[1] - 10  # 5px de marge de chaque côté
