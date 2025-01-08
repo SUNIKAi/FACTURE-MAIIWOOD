@@ -76,13 +76,11 @@ def create_pdf(data, total_ttc=None):
 
     # Création du PDF avec titre personnalisé
     title = f"Facture - {data['numero']} - {data['client_nom']}"
-    c = canvas.Canvas(buffer, pagesize=A4, title=title)
-    c._doc.info.update({
-        'Title': title,
-        'Author': 'MAIIWOODATELIER',
-        'Subject': 'Facture',
-        'Creator': 'MAIIWOODATELIER'
-    })
+    c = canvas.Canvas(buffer, pagesize=A4)
+    c.setTitle(title)
+    c.setAuthor('MAIIWOODATELIER')
+    c.setSubject('Facture')
+    c.setCreator('MAIIWOODATELIER')
     
     # En-tête
     c.setFont("Helvetica-Bold", 16)
