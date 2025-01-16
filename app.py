@@ -323,26 +323,49 @@ def create_pdf(data, total_ttc=None):
     table.wrapOn(c, width, height)
     table_height = table.wrap(width - 100, height)[1]
     
-    # Hauteur nécessaire pour le tableau + bon pour accord + totaux
-    hauteur_necessaire_principale = table_height + 100
+    # Hauteur requise pour le bon pour accord et les totaux
+    hauteur_bpa_totaux = 100  # environ
+    
+    # Hauteur requise pour le bas de page
+    hauteur_bas_page = 250  # environ
     
     # Hauteur disponible sur la première page
-    hauteur_disponible = y - 50
+    hauteur_disponible = y - hauteur_bas_page - 20  # marge de 20
 
-    # Si le tableau et les totaux tiennent sur la première page
-    if hauteur_necessaire_principale <= hauteur_disponible:
+    # Cas 1: Tout tient sur la première page
+    if table_height + hauteur_bpa_totaux <= hauteur_disponible:
+        # Dessiner le tableau
         table.drawOn(c, 50, y - table_height)
-        y_accord = y - table_height - 50
+        
+        # Dessiner bon pour accord et totaux
+        y_accord = y - table_height - 20
         dessiner_bon_pour_accord_et_totaux(y_accord)
         
-        # Nouvelle page pour le bas de page
+        # Dessiner le bas de page sur la même page
+        dessiner_bas_de_page(y - table_height - hauteur_bpa_totaux - 20)
+        
+    # Cas 2: Le tableau tient mais pas les totaux/bpa
+    elif table_height <= hauteur_disponible:
+        # Dessiner le tableau sur la page 1
+        table.drawOn(c, 50, y - table_height)
+        
+        # Nouvelle page pour bon pour accord, totaux et bas de page
         c.showPage()
-        dessiner_bas_de_page(height - 50)
+        dessiner_en_tete()
+        
+        # Dessiner bon pour accord et totaux en haut de la page 2
+        y_accord = height - 250
+        dessiner_bon_pour_accord_et_totaux(y_accord)
+        
+        # Dessiner le bas de page
+        dessiner_bas_de_page(y_accord - hauteur_bpa_totaux - 20)
+        
+    # Cas 3: Le tableau ne tient pas sur une seule page
     else:
-        # Le tableau est trop grand, on le divise
-        nb_lignes = len(table_data)
-        lignes_premiere_page = max(2, int((hauteur_disponible / table_height) * nb_lignes) - 1)
-
+        # Calculer combien de lignes peuvent tenir sur la première page
+        hauteur_ligne_moyenne = table_height / len(table_data)
+        lignes_premiere_page = max(2, int(hauteur_disponible / hauteur_ligne_moyenne))
+        
         # Première partie du tableau
         table1_data = table_data[:lignes_premiere_page]
         table1 = Table(table1_data, colWidths=col_widths)
@@ -355,27 +378,38 @@ def create_pdf(data, total_ttc=None):
         c.showPage()
         dessiner_en_tete()
         
-        # Deuxième partie du tableau
+        # Position pour la suite du tableau
         y = height - 250
+        
+        # Deuxième partie du tableau
         table2_data = table_data[lignes_premiere_page:]
         table2 = Table(table2_data, colWidths=col_widths)
         table2.setStyle(style)
         table2.wrapOn(c, width, height)
         table2_height = table2.wrap(width - 100, height)[1]
-        table2.drawOn(c, 50, y - table2_height)
         
-        # Dessiner bon pour accord et totaux
-        y_accord = y - table2_height - 50
-        dessiner_bon_pour_accord_et_totaux(y_accord)
-        
-        # Nouvelle page pour le bas de page
-        c.showPage()
-        dessiner_bas_de_page(height - 50)
+        # Vérifier si le reste du tableau + bpa/totaux tiennent sur la page 2
+        hauteur_restante_page2 = y - hauteur_bas_page - 20
+        if table2_height + hauteur_bpa_totaux <= hauteur_restante_page2:
+            table2.drawOn(c, 50, y - table2_height)
+            y_accord = y - table2_height - 20
+            dessiner_bon_pour_accord_et_totaux(y_accord)
+            dessiner_bas_de_page(y - table2_height - hauteur_bpa_totaux - 20)
+        else:
+            # Dessiner le reste du tableau
+            table2.drawOn(c, 50, y - table2_height)
+            
+            # Nouvelle page pour bon pour accord, totaux et bas de page
+            c.showPage()
+            dessiner_en_tete()
+            y_accord = height - 250
+            dessiner_bon_pour_accord_et_totaux(y_accord)
+            dessiner_bas_de_page(y_accord - hauteur_bpa_totaux - 20)
 
     c.save()
     buffer.seek(0)
     return buffer
-
+    
 def main():
     st.title("Générateur de Factures")
 
