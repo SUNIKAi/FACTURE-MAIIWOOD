@@ -83,181 +83,13 @@ def create_pdf(data, total_ttc=None):
     c.setCreator('MAIIWOODATELIER')
 
     def dessiner_en_tete():
-        # En-tête
-        c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, height - 50, "FACTURE")
-        c.setFont("Helvetica", 12)
-        c.drawString(50, height - 70, f"N° {data['numero']}")
-        c.drawString(450, height - 70, str(date.today().strftime("%d/%m/%Y")))
-
-        # Informations MAIIWOODATELIER
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(50, height - 120, "MAIIWOODATELIER")
-        c.setFont("Helvetica", 10)
-        c.drawString(50, height - 140, "521 route du port d'Arciat")
-        c.drawString(50, height - 155, "Creche sur Saône 71680")
-        c.drawString(50, height - 170, "quentin.bergeron71@gmail.com")
-        c.drawString(50, height - 185, "Tel: 0622037204")
-        c.drawString(50, height - 200, "SIRET: 93356216700017")
-
-        # Informations client
-        c.setFont("Helvetica-Bold", 12)
-        x = 350
-        y = height - 120
-        text = "À destination de : " + data['client_nom']
-        text_width = c.stringWidth(text, "Helvetica-Bold", 12)
-        c.drawString(x, y, text)
-        c.line(x, y-2, x + text_width, y-2)
-        
-        c.setFont("Helvetica", 10)
-        adresse_text = data['adresse_client']
-        telephone_text = data['telephone_client']
-        email_text = data['client_email']
-        
-        c.drawString(x, height - 135, adresse_text)
-        c.drawString(x, height - 150, telephone_text)
-        c.drawString(x, height - 165, email_text)
+        # ... (votre code existant)
 
     def dessiner_bon_pour_accord_et_totaux(y_accord):
-        # Bon pour accord (à gauche)
-        c.setFont("Helvetica-Bold", 9)
-        accord_width = 200
-        accord_height = 80
-        c.rect(50, y_accord - accord_height, accord_width, accord_height)
-        c.rect(52, y_accord - accord_height + 2, accord_width - 4, accord_height - 4)
-        c.drawString(60, y_accord - 20, "Bon pour accord :")
-        c.drawString(60, y_accord - 40, "Date :")
-        c.drawString(60, y_accord - 60, "Signature :")
-
-        # Double encadré pour les totaux (à droite)
-        totals_width = 200
-        totals_height = 80
-        x_totals = width - 50 - totals_width
-        c.rect(x_totals, y_accord - totals_height, totals_width, totals_height)
-        c.rect(x_totals + 2, y_accord - totals_height + 2, totals_width - 4, totals_height - 4)
-        
-        c.line(x_totals + 2, y_accord - 20, x_totals + totals_width - 2, y_accord - 20)
-        c.line(x_totals + 2, y_accord - 40, x_totals + totals_width - 2, y_accord - 40)
-        c.line(x_totals + 2, y_accord - 60, x_totals + totals_width - 2, y_accord - 60)
-        
-        remise = data.get('remise', 0)
-        total_ttc = total_ht - remise
-        
-        c.drawString(x_totals + 10, y_accord - 15, f"Total HT: {format_number(total_ht)} €")
-        c.drawString(x_totals + 10, y_accord - 35, f"Remise: {format_number(remise)} €")
-        c.drawString(x_totals + 10, y_accord - 55, "TVA: 0,00%")
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(x_totals + 10, y_accord - 75, f"Total TTC: {format_number(total_ttc)} €")
+        # ... (votre code existant)
 
     def dessiner_bas_de_page(y_start):
-        # Ligne de séparation
-        y_sep = y_start - 20
-        c.line(50, y_sep, width-50, y_sep)
-        y_footer = y_sep - 20
-
-        # Section Livraison
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(50, y_footer, "Livraison")
-        c.line(50, y_footer - 2, 100, y_footer - 2)
-        
-        c.setFont("Helvetica", 9)
-        if data.get('mode_livraison') == 'enlevement':
-            c.drawString(50, y_footer - 15, "Enlèvement à :")
-            c.drawString(50, y_footer - 30, "521 route du port d'Arciat, Creche sur Saône 71680")
-        else:
-            c.drawString(50, y_footer - 15, "Adresse de livraison :")
-            adresse_lines = data.get('adresse_livraison', '').split('\n')
-            for i, line in enumerate(adresse_lines):
-                c.drawString(50, y_footer - 30 - (i * 10), line)
-
-        # Terms
-        y_terms = y_footer - 60
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(50, y_terms, "Terms")
-        c.line(50, y_terms - 2, 85, y_terms - 2)
-        
-        c.setFont("Helvetica", 9)
-        c.drawString(50, y_terms - 15, "* Condition de réglement paiement complet")
-        c.drawString(50, y_terms - 25, "  à livraison ou enlèvement du produit")
-        c.drawString(50, y_terms - 35, "* Accompte de 30% pour réservation")
-        c.drawString(50, y_terms - 45, "  avant livraison ou enlèvement ultérieur")
-
-        # Section Paiement
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(width/2, y_footer, "Paiement:")
-        c.line(width/2, y_footer - 2, width/2 + 60, y_footer - 2)
-
-        # Tableau de paiement
-        col_widths = [45, 45, 70, 35, 53]
-        y_payment = y_footer - 20
-        x_payment = width/2
-
-        # Fond gris clair
-        c.setFillColor(colors.Color(0.95, 0.95, 0.95))
-        c.rect(x_payment, y_payment - 125, sum(col_widths), 125, fill=1)
-        c.setFillColor(colors.black)
-
-        # Structure du tableau
-        c.setFont("Helvetica", 8)
-        
-        # Lignes horizontales et verticales
-        for i in range(6):
-            y = y_payment - (i * 25)
-            c.line(x_payment, y, x_payment + sum(col_widths), y)
-
-        x_current = x_payment
-        for i, width_col in enumerate(col_widths):
-            if i == 0:
-                c.line(x_current, y_payment, x_current, y_payment - 125)
-            else:
-                c.line(x_current, y_payment, x_current, y_payment - 50)
-            x_current += width_col
-        c.line(x_payment + sum(col_widths), y_payment, x_payment + sum(col_widths), y_payment - 125)
-
-        # Contenu du tableau
-        headers = ['Banque', 'Indicatif', 'N° compte', 'Clé RIB', 'Domiciliation']
-        data_row = ['12135', '300', '4195188867', '14', 'MACON\nEUROPE']
-        
-        x = x_payment
-        for i, header in enumerate(headers):
-            c.drawString(x + 5, y_payment - 15, header)
-            x += col_widths[i]
-
-        x = x_payment
-        for i, value in enumerate(data_row):
-            if i == 4:
-                c.drawString(x + 5, y_payment - 35, "MACON")
-                c.drawString(x + 5, y_payment - 45, "EUROPE")
-            else:
-                c.drawString(x + 5, y_payment - 40, value)
-            x += col_widths[i]
-
-        c.drawString(x_payment + 5, y_payment - 65, "IBAN:")
-        c.drawString(x_payment + col_widths[0] + 5, y_payment - 65, "FR76 1213 5003 0004 1951 8886 714")
-        
-        c.drawString(x_payment + 5, y_payment - 90, "BIC:")
-        c.drawString(x_payment + col_widths[0] + 5, y_payment - 90, "CEPAFRPP213")
-        
-        c.drawString(x_payment + 5, y_payment - 115, "Nom:")
-        c.drawString(x_payment + col_widths[0] + 5, y_payment - 115, "Bergeron Quentin")
-
-        # Mentions légales
-        y_mentions = y_terms - 80
-        c.setFont("Helvetica-Bold", 10)
-        c.drawString(50, y_mentions, "Mention légale")
-        c.line(50, y_mentions - 2, 130, y_mentions - 2)
-
-        c.setFont("Helvetica", 6)  # Taille réduite pour les mentions légales
-        mentions = [
-            "*Garantie légale de conformité : Les produits vendus bénéficient d'une garantie légale de conformité de 2 ans à compter de la livraison,",
-            "conformément aux articles L.217-3 et suivants du Code de la consommation.",
-            "*Garantie contre les vices cachés : Les produits sont également couverts par une garantie contre les vices cachés pendant 2 ans à compter",
-            "de la découverte du défaut (articles 1641 et suivants du Code civil).",
-            "Pour toute question ou réclamation, veuillez contacter notre service client : 0622037204"
-        ]
-        
-        for i, line in enumerate(mentions):
-            c.drawString(50, y_mentions - 12 - (i * 8), line)
+        # ... (votre code existant)
 
     # Dessiner l'en-tête
     dessiner_en_tete()
@@ -266,62 +98,62 @@ def create_pdf(data, total_ttc=None):
     y = height - 250
 
     # Création du tableau
-   styles = getSampleStyleSheet()
+    styles = getSampleStyleSheet()
 
-   # Vérifier si des photos sont présentes
-   has_photos = any(
-       service.get('image_path') and os.path.exists(service['image_path']) 
-       for service in data['services']
-   )
+    # Vérifier si des photos sont présentes
+    has_photos = any(
+        service.get('image_path') and os.path.exists(service['image_path']) 
+        for service in data['services']
+    )
 
-   # Ajuster les en-têtes et largeurs selon la présence de photos
-   if has_photos:
-       headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
-       col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, 
-                   (width-100)*0.15, (width-100)*0.2]
-   else:
-       headers = ['Description', 'Prix/u', 'Quantité', 'Prix total']
-       col_widths = [(width-100)*0.4, (width-100)*0.2, (width-100)*0.2, 
-                   (width-100)*0.2]
+    # Ajuster les en-têtes et largeurs selon la présence de photos
+    if has_photos:
+        headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
+        col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, 
+                    (width-100)*0.15, (width-100)*0.2]
+    else:
+        headers = ['Description', 'Prix/u', 'Quantité', 'Prix total']
+        col_widths = [(width-100)*0.4, (width-100)*0.2, (width-100)*0.2, 
+                    (width-100)*0.2]
 
-   table_data = [headers]
-   total_ht = 0
-   for service in data['services']:
-       description = Paragraph(
-           service['prestation'].replace('\n', '<br/>'),
-           ParagraphStyle(
-               'Normal',
-               fontSize=10,
-               leading=12,
-               wordWrap='CJK'
-           )
-       )
-       
-       row = [description]
-       if has_photos:
-           if service.get('image_path') and os.path.exists(service['image_path']):
-               try:
-                   img = Image(service['image_path'])
-                   max_width = col_widths[1] - 10
-                   max_height = 100
-                   ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
-                   img.drawWidth *= ratio
-                   img.drawHeight *= ratio
-                   row.append(img)
-               except:
-                   row.append('')
-           else:
-               row.append('')
-               
-       row.extend([
-           f"{format_number(service['prix_unitaire'])} €",
-           format_number(service['quantite']),
-           f"{format_number(service['prix_total'])} €"
-       ])
-       
-       table_data.append(row)
-       total_ht += service['prix_total']
-    
+    table_data = [headers]
+    total_ht = 0
+    for service in data['services']:
+        description = Paragraph(
+            service['prestation'].replace('\n', '<br/>'),
+            ParagraphStyle(
+                'Normal',
+                fontSize=10,
+                leading=12,
+                wordWrap='CJK'
+            )
+        )
+        
+        row = [description]
+        if has_photos:
+            if service.get('image_path') and os.path.exists(service['image_path']):
+                try:
+                    img = Image(service['image_path'])
+                    max_width = col_widths[1] - 10
+                    max_height = 100
+                    ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
+                    img.drawWidth *= ratio
+                    img.drawHeight *= ratio
+                    row.append(img)
+                except:
+                    row.append('')
+            else:
+                row.append('')
+                
+        row.extend([
+            f"{format_number(service['prix_unitaire'])} €",
+            format_number(service['quantite']),
+            f"{format_number(service['prix_total'])} €"
+        ])
+        
+        table_data.append(row)
+        total_ht += service['prix_total']
+
     table = Table(table_data, colWidths=col_widths)
     style = TableStyle([
         ('ALIGN', (0, 0), (0, -1), 'LEFT'),
