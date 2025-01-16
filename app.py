@@ -266,45 +266,61 @@ def create_pdf(data, total_ttc=None):
     y = height - 250
 
     # Création du tableau
-    styles = getSampleStyleSheet()
-    headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
-    col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, (width-100)*0.15, (width-100)*0.2]
-    table_data = [headers]
-    
-    total_ht = 0
-    for service in data['services']:
-        description = Paragraph(
-            service['prestation'].replace('\n', '<br/>'),
-            ParagraphStyle(
-                'Normal',
-                fontSize=10,
-                leading=12,
-                wordWrap='CJK'
-            )
-        )
-        
-        if service.get('image_path') and os.path.exists(service['image_path']):
-            try:
-                img = Image(service['image_path'])
-                max_width = col_widths[1] - 10
-                max_height = 100
-                ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
-                img.drawWidth *= ratio
-                img.drawHeight *= ratio
-            except:
-                img = ''
-        else:
-            img = ''
+   styles = getSampleStyleSheet()
 
-        row = [
-            description,
-            img,
-            f"{format_number(service['prix_unitaire'])} €",
-            format_number(service['quantite']),
-            f"{format_number(service['prix_total'])} €"
-        ]
-        table_data.append(row)
-        total_ht += service['prix_total']
+   # Vérifier si des photos sont présentes
+   has_photos = any(
+       service.get('image_path') and os.path.exists(service['image_path']) 
+       for service in data['services']
+   )
+
+   # Ajuster les en-têtes et largeurs selon la présence de photos
+   if has_photos:
+       headers = ['Description', 'Photo', 'Prix/u', 'Quantité', 'Prix total']
+       col_widths = [(width-100)*0.3, (width-100)*0.2, (width-100)*0.15, 
+                   (width-100)*0.15, (width-100)*0.2]
+   else:
+       headers = ['Description', 'Prix/u', 'Quantité', 'Prix total']
+       col_widths = [(width-100)*0.4, (width-100)*0.2, (width-100)*0.2, 
+                   (width-100)*0.2]
+
+   table_data = [headers]
+   total_ht = 0
+   for service in data['services']:
+       description = Paragraph(
+           service['prestation'].replace('\n', '<br/>'),
+           ParagraphStyle(
+               'Normal',
+               fontSize=10,
+               leading=12,
+               wordWrap='CJK'
+           )
+       )
+       
+       row = [description]
+       if has_photos:
+           if service.get('image_path') and os.path.exists(service['image_path']):
+               try:
+                   img = Image(service['image_path'])
+                   max_width = col_widths[1] - 10
+                   max_height = 100
+                   ratio = min(max_width/img.drawWidth, max_height/img.drawHeight)
+                   img.drawWidth *= ratio
+                   img.drawHeight *= ratio
+                   row.append(img)
+               except:
+                   row.append('')
+           else:
+               row.append('')
+               
+       row.extend([
+           f"{format_number(service['prix_unitaire'])} €",
+           format_number(service['quantite']),
+           f"{format_number(service['prix_total'])} €"
+       ])
+       
+       table_data.append(row)
+       total_ht += service['prix_total']
     
     table = Table(table_data, colWidths=col_widths)
     style = TableStyle([
