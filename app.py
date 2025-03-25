@@ -73,19 +73,22 @@ def delete_invoice(invoice_number):
 def create_pdf(data, total_ttc=None):
     buffer = io.BytesIO()
     width, height = A4
-
+    
+    # Récupérer le type de document
+    document_type = data.get('document_type', 'FACTURE')
+    
     # Création du PDF avec titre personnalisé
-    title = f"Facture - {data['numero']} - {data['client_nom']}"
+    title = f"{document_type} - {data['numero']} - {data['client_nom']}"
     c = canvas.Canvas(buffer, pagesize=A4)
     c.setTitle(title)
     c.setAuthor('MAIIWOODATELIER')
-    c.setSubject('Facture')
+    c.setSubject(document_type)
     c.setCreator('MAIIWOODATELIER')
-
+    
     def dessiner_en_tete():
-        # En-tête
+        # En-tête avec le type de document choisi
         c.setFont("Helvetica-Bold", 16)
-        c.drawString(50, height - 50, "FACTURE")
+        c.drawString(50, height - 50, document_type)
         c.setFont("Helvetica", 12)
         c.drawString(50, height - 70, f"N° {data['numero']}")
         c.drawString(450, height - 70, str(date.today().strftime("%d/%m/%Y")))
@@ -428,6 +431,13 @@ def create_pdf(data, total_ttc=None):
     
 def main():
     st.title("Générateur de Factures")
+    
+    # Choix du type de document
+    document_type = st.radio(
+        "Type de document",
+        ["FACTURE", "DEVIS"],
+        horizontal=True
+    )
 
     # Initialisation de la session state
     if 'current_data' not in st.session_state:
@@ -619,6 +629,7 @@ def main():
                 'mode_livraison': mode_livraison,
                 'adresse_livraison': adresse_livraison,
                 'remise': remise
+                'document_type': document_type  # Ajout du type de document
             }
             
             # Sauvegarder la facture
