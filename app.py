@@ -628,7 +628,7 @@ def main():
                 'services': st.session_state.services,
                 'mode_livraison': mode_livraison,
                 'adresse_livraison': adresse_livraison,
-                'remise': remise
+                'remise': remise,
                 'document_type': document_type  # Ajout du type de document
             }
             
